@@ -4,7 +4,7 @@
     "rootDir": "./src",
     "outDir": "./dist",
     // Environment Settings
-    "module": "commonjs",
+    "module": "esnext",
     "target": "es2020",
     "types": [],
     // For nodejs:
