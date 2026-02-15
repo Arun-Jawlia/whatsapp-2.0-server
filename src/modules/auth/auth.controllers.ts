@@ -1,13 +1,31 @@
+import {
+  signAccessToken,
+  signRefreshToken,
+  verifyRefreshToken,
+} from "./../../utils/jwt";
 import { Request, Response } from "express";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { registerSchema, loginSchema } from "./auth.validation";
 import { authService } from "./auth.services";
 import { env } from "../../config/env";
+import { AuthRequest } from "../../middlewares/auth.middleware";
+import { User } from "../users/user.model";
+import { ApiError } from "../../utils/ApiError";
 
 const cookieOptions = {
   httpOnly: true,
   secure: env.NODE_ENV,
   sameSite: "lax" as const,
+};
+
+const accessCookieOptions = {
+  ...cookieOptions,
+  maxAge: 1000 * 60 * 15, // 15 min
+};
+
+const refreshCookieOptions = {
+  ...cookieOptions,
+  maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
 };
 
 export const authController = {
@@ -20,8 +38,8 @@ export const authController = {
       parsed.data,
     );
 
-    res.cookie("accessToken", accessToken, cookieOptions);
-    res.cookie("refreshToken", refreshToken, cookieOptions);
+    res.cookie("accessToken", accessToken, accessCookieOptions);
+    res.cookie("refreshToken", refreshToken, refreshCookieOptions);
 
     res.status(201).json({
       message: "Registered successfully",
@@ -57,5 +75,66 @@ export const authController = {
         avatar: user.avatar,
       },
     });
+  }),
+
+  // Me
+  me: asyncHandler(async (req: AuthRequest, res: Response) => {
+    const user = await User.findById(req.userId).select(
+      "-password -refreshToken",
+    );
+    if (!user) throw new ApiError(404, "User not found");
+
+    res.json({ user });
+  }),
+
+  // Logout
+  logout: asyncHandler(async (req: Request, res: Response) => {
+    const refreshToken = req.cookies?.refreshToken;
+
+    if (refreshToken) {
+      const user = await User.findOne({ refreshToken });
+      if (user) {
+        user.refreshToken = "";
+        await user.save();
+      }
+    }
+
+    res.clearCookie("accessToken");
+    res.clearCookie("refreshToken");
+
+    res.json({ message: "Logged out successfully" });
+  }),
+
+  // Refresh
+  refresh: asyncHandler(async (req: Request, res: Response) => {
+    const refreshToken = req.cookies?.signRefreshToken;
+
+    if (!refreshToken) throw new ApiError(401, "Invalid refresh token");
+
+    let decoded: any;
+    try {
+      decoded = verifyRefreshToken(refreshToken);
+    } catch (error) {
+      throw new ApiError(401, "Invalid refresh token");
+    }
+
+    const user = await User.findById(decoded.userId);
+    if (!user) throw new ApiError(401, "User not found");
+
+    // IMPORTANT: refresh token rotation
+    if (user.refreshToken !== refreshToken) {
+      throw new ApiError(401, "Refresh token reused or invalid");
+    }
+
+    const newAccessToken = signAccessToken({ userId: user._id });
+    const newRefreshToken = signRefreshToken({ userId: user._id });
+
+    user.refreshToken = newRefreshToken;
+    await user.save();
+
+    res.cookie("accessToken", newAccessToken, accessCookieOptions);
+    res.cookie("refreshToken", newRefreshToken, refreshCookieOptions);
+
+    res.json({ message: "Token refreshed" });
   }),
 };
