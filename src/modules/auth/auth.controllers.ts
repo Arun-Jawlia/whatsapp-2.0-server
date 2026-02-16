@@ -107,7 +107,7 @@ export const authController = {
 
   // Refresh
   refresh: asyncHandler(async (req: Request, res: Response) => {
-    const refreshToken = req.cookies?.signRefreshToken;
+    const refreshToken = req.cookies?.refreshToken;
 
     if (!refreshToken) throw new ApiError(401, "Invalid refresh token");
 

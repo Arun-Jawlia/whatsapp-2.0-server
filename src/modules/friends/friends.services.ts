@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { ApiError } from "../../utils/ApiError";
 import { FriendRequest } from "./friend-request.model";
 import { Friendship } from "./friendship.model";
+import { Chat } from "../chats/chat.model";
 
 export const friendsService = {
   areFriend: async (userA: string, userB: string) => {
@@ -60,14 +61,36 @@ export const friendsService = {
     const [u1, u2] = [req.fromUser.toString(), req.toUser.toString()].sort();
 
     // create friendship
+    let friendship: any = null;
+
     try {
-      await Friendship.create({ user1: u1, user2: u2 });
+      friendship = await Friendship.create({ user1: u1, user2: u2 });
     } catch (err: any) {
-      if (err.code !== 11000) throw err;
+      if (err.code === 11000) {
+        friendship = await Friendship.findOne({ user1: u1, user2: u2 });
+      } else {
+        throw err;
+      }
+    }
+
+    // 🔥 auto-create private chat
+    const existingChat = await Chat.findOne({
+      type: "private",
+      friendshipId: friendship._id,
+    });
+
+    if (!existingChat) {
+      await Chat.create({
+        type: "private",
+        members: [req.fromUser, req.toUser],
+        friendshipId: friendship._id,
+        createdBy: req.fromUser,
+      });
     }
 
     return req;
   },
+
   rejectRequest: async (userId: string, requestId: string) => {
     const req = await FriendRequest.findById(requestId);
 
