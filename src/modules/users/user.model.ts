@@ -6,9 +6,12 @@ export interface IUser extends Document {
   email: string;
   password: string;
   avatar?: string;
-
   refreshToken?: string;
-
+  isLocationEnabled: boolean;
+  location: {
+    type: "Point";
+    coordinates: [number, number];
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -60,8 +63,23 @@ const userSchema = new Schema<IUser>(
       default: "",
       maxlength: [500, "Refresh token cannot exceed 500 characters"],
     },
+    isLocationEnabled: { type: Boolean, default: false },
+    location: {
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: "Point",
+      },
+      coordinates: {
+        type: [Number],
+        default: [0, 0],
+      },
+    },
   },
   { timestamps: true },
 );
+
+// 🔥 required for nearby queries
+userSchema.index({ location: "2dsphere" });
 
 export const User = mongoose.model<IUser>("User", userSchema);
