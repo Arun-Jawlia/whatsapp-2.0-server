@@ -92,4 +92,18 @@ export const chatsController = {
 
     res.status(201).json({ message: populated });
   }),
+  getPrivateChatByFriendId: asyncHandler(
+    async (req: AuthRequest, res: Response) => {
+      const friendId = req.params.friendId;
+
+      const chat = await Chat.findOne({
+        type: "private",
+        members: { $all: [req.userId, friendId] },
+      });
+
+      if (!chat) throw new ApiError(404, "Chat not found");
+
+      res.json({ chatId: chat._id });
+    },
+  ),
 };

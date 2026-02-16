@@ -27,6 +27,6 @@ app.get("/", (req, res) => {
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/friends", friendRoutes);
 app.use("/api/v1/users", UserRoutes);
-app.use("/api/v1/chat", chatsRoutes);
+app.use("/api/v1/chats", chatsRoutes);
 
 app.use(errorMiddleware);
