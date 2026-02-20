@@ -14,4 +14,6 @@ export const env = {
   ACCESS_TOKEN_EXPIRES_IN: process.env.ACCESS_TOKEN_EXPIRES_IN || "15m",
   REFRESH_TOKEN_EXPIRES_IN: process.env.REFRESH_TOKEN_EXPIRES_IN || "7d",
   NODE_ENV: process.env.NODE_ENV === "production" ? true : false,
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
+  AI_MODEL: process.env.AI_MODEL || "gpt-4o-mini",
 };
