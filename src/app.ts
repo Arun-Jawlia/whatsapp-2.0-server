@@ -6,7 +6,7 @@ import { errorMiddleware } from "./middlewares/error.middleware";
 import { env } from "./config/env";
 import friendRoutes from "./modules/friends/friends.routes";
 import UserRoutes from "./modules/users/user.routes";
-import chatsRoutes from "./modules/chats/chat.routes";
+import chatsRoutes from "./modules/chats/chats.routes";
 
 export const app = express();
 
