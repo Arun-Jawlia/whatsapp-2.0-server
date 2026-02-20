@@ -75,6 +75,10 @@ export const registerSocketEvents = (io: Server) => {
       socket.to(chatId).emit("message:read", { chatId, userId });
     });
 
+    socket.on("chat:join", ({ chatId }) => {
+      socket.join(chatId);
+    });
+
     socket.on("disconnect", () => {
       onlineUsers.delete(userId);
       io.emit("presence:offline", { userId });

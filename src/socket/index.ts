@@ -3,11 +3,12 @@ import http from "http";
 import { env } from "../config/env";
 import { socketAuth } from "./auth";
 import { registerSocketEvents } from "./events";
+import { setIO } from "./io";
 
 export const initSocket = (server: http.Server) => {
   const io = new Server(server, {
     cors: {
-      origin:true,
+      origin: true,
       credentials: true,
     },
   });
@@ -18,5 +19,5 @@ export const initSocket = (server: http.Server) => {
 
   console.log("✅ Socket.IO initialized");
 
-  return io;
+  return setIO(io);
 };

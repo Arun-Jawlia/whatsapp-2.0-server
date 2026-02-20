@@ -7,6 +7,7 @@ import { env } from "./config/env";
 import friendRoutes from "./modules/friends/friends.routes";
 import UserRoutes from "./modules/users/user.routes";
 import chatsRoutes from "./modules/chats/chats.routes";
+import aiRoutes from "./modules/ai/ai.routes";
 
 export const app = express();
 
@@ -28,5 +29,6 @@ app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/friends", friendRoutes);
 app.use("/api/v1/users", UserRoutes);
 app.use("/api/v1/chats", chatsRoutes);
+app.use("/api/v1/ai", aiRoutes);
 
 app.use(errorMiddleware);

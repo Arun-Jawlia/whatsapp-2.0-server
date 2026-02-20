@@ -5,6 +5,7 @@ import { ApiError } from "../../utils/ApiError";
 import { AuthRequest } from "../../middlewares/auth.middleware";
 import { Chat } from "./chat.model";
 import { Message } from "../messages/message.model";
+import { ensureAiChatForUser } from "../ai/ai.chat";
 
 export const chatsController = {
   listChats: asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -17,7 +18,8 @@ export const chatsController = {
         select: "type text createdAt senderId",
       })
       .sort({ updatedAt: -1 });
-
+    await ensureAiChatForUser(req.userId!);
+    
     res.json({ chats });
   }),
 
