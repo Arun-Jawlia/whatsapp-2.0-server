@@ -10,7 +10,7 @@ export type MessageType =
 
 export interface IMessage extends Document {
   chatId: Types.ObjectId;
-  senderId?: Types.ObjectId; // null for AI/system
+  senderId?: Types.ObjectId | null;
 
   type: MessageType;
 
@@ -25,8 +25,18 @@ export interface IMessage extends Document {
 
   replyTo?: Types.ObjectId;
 
-  deletedFor: Types.ObjectId[]; // hide for specific users
+  // per-user deletes (delete for me)
+  deletedFor: Types.ObjectId[];
+
+  // per-user delivery/read
+  deliveredTo: Types.ObjectId[];
   readBy: Types.ObjectId[];
+
+  // edit
+  isEdited: boolean;
+
+  // delete for everyone
+  isDeletedForEveryone: boolean;
 
   createdAt: Date;
   updatedAt: Date;
@@ -35,7 +45,7 @@ export interface IMessage extends Document {
 const messageSchema = new Schema<IMessage>(
   {
     chatId: { type: Schema.Types.ObjectId, ref: "Chat", required: true },
-    senderId: { type: Schema.Types.ObjectId, ref: "User" },
+    senderId: { type: Schema.Types.ObjectId, ref: "User", default: null },
 
     type: {
       type: String,
@@ -55,7 +65,12 @@ const messageSchema = new Schema<IMessage>(
     replyTo: { type: Schema.Types.ObjectId, ref: "Message" },
 
     deletedFor: [{ type: Schema.Types.ObjectId, ref: "User" }],
+
+    deliveredTo: [{ type: Schema.Types.ObjectId, ref: "User" }],
     readBy: [{ type: Schema.Types.ObjectId, ref: "User" }],
+
+    isEdited: { type: Boolean, default: false },
+    isDeletedForEveryone: { type: Boolean, default: false },
   },
   { timestamps: true },
 );
