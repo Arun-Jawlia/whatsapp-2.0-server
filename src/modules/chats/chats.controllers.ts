@@ -19,7 +19,7 @@ export const chatsController = {
       })
       .sort({ updatedAt: -1 });
     await ensureAiChatForUser(req.userId!);
-    
+
     res.json({ chats });
   }),
 
@@ -40,7 +40,10 @@ export const chatsController = {
     const limit = Math.min(Number(req.query.limit || 30), 50);
     const cursor = req.query.cursor as string | undefined;
 
-    const query: any = { chatId };
+    const query: any = {
+      chatId,
+      deletedFor: { $ne: req.userId },
+    };
 
     // cursor pagination (load older)
     if (cursor && mongoose.isValidObjectId(cursor)) {
