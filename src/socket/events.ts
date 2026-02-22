@@ -137,6 +137,11 @@ export const registerSocketEvents = (io: Server) => {
         { $addToSet: { deliveredTo: userId } },
       );
 
+      await Chat.updateOne(
+        { _id: chatId },
+        { $set: { [`lastRead.${userId}`]: new Date() } },
+      );
+
       socket.to(chatId).emit("message:read", { chatId, userId });
     });
 
