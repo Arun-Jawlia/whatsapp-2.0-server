@@ -3,13 +3,13 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import authRoutes from "./modules/auth/auth.routes";
 import { errorMiddleware } from "./middlewares/error.middleware";
-import { env } from "./config/env";
 import friendRoutes from "./modules/friends/friends.routes";
 import UserRoutes from "./modules/users/user.routes";
 import chatsRoutes from "./modules/chats/chats.routes";
 import aiRoutes from "./modules/ai/ai.routes";
 import notificationRoutes from "./modules/notifications/notification.routes";
 import messagesRoutes from "./modules/messages/messages.routes";
+import uploadRoutes from "./modules/uploads/upload.routes";
 
 export const app = express();
 
@@ -34,5 +34,6 @@ app.use("/api/v1/chats", chatsRoutes);
 app.use("/api/v1/ai", aiRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/v1/messages", messagesRoutes);
+app.use("/api/v1/uploads", uploadRoutes);
 
 app.use(errorMiddleware);

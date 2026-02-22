@@ -22,6 +22,11 @@ export interface IChat extends Document {
 
   createdBy?: Types.ObjectId;
 
+  pinnedBy: Types.ObjectId[];
+
+  // userId -> last read timestamp
+  lastRead: Map<string, Date>;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -42,12 +47,20 @@ const chatSchema = new Schema<IChat>(
       default: "whatsapp",
     },
 
+    pinnedBy: [{ type: Schema.Types.ObjectId, ref: "User" }],
+
     title: { type: String, default: "" },
     groupIcon: { type: String, default: "" },
 
     lastMessage: { type: Schema.Types.ObjectId, ref: "Message" },
 
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
+    
+    lastRead: {
+      type: Map,
+      of: Date,
+      default: () => new Map(),
+    },
   },
   { timestamps: true },
 );
@@ -56,5 +69,6 @@ const chatSchema = new Schema<IChat>(
 chatSchema.index({ members: 1 });
 chatSchema.index({ friendshipId: 1 });
 chatSchema.index({ type: 1 });
+chatSchema.index({ pinnedBy: 1 });
 
 export const Chat = mongoose.model<IChat>("Chat", chatSchema);

@@ -9,18 +9,30 @@ import { ensureAiChatForUser } from "../ai/ai.chat";
 
 export const chatsController = {
   listChats: asyncHandler(async (req: AuthRequest, res: Response) => {
-    const chats = await Chat.find({
-      members: req.userId,
-    })
+    const chats = await Chat.find({ members: req.userId })
       .populate("members", "name username email avatar")
-      .populate({
-        path: "lastMessage",
-        select: "type text createdAt senderId",
-      })
+      .populate({ path: "lastMessage", select: "type text createdAt senderId" })
       .sort({ updatedAt: -1 });
-    await ensureAiChatForUser(req.userId!);
 
-    res.json({ chats });
+    const chatsWithUnread = [];
+
+    for (const c of chats) {
+      const lastRead = (c as any).lastRead?.get(req.userId!) || new Date(0);
+
+      const unreadCount = await Message.countDocuments({
+        chatId: c._id,
+        createdAt: { $gt: lastRead },
+        senderId: { $ne: req.userId },
+        deletedFor: { $ne: req.userId },
+      });
+
+      chatsWithUnread.push({
+        ...c.toObject(),
+        unreadCount,
+      });
+    }
+
+    res.json({ chats: chatsWithUnread });
   }),
 
   listMessages: asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -111,4 +123,43 @@ export const chatsController = {
       res.json({ chatId: chat._id });
     },
   ),
+  searchMessages: asyncHandler(async (req: AuthRequest, res: Response) => {
+    const chatId = req.params.chatId;
+    const q = String(req.query.q || "").trim();
+
+    if (!q) throw new ApiError(400, "Query required");
+
+    const chat = await Chat.findById(chatId);
+    if (!chat) throw new ApiError(404, "Chat not found");
+
+    const isMember = chat.members.some((m) => m.toString() === req.userId);
+    if (!isMember) throw new ApiError(403, "Not allowed");
+
+    const results = await Message.find({
+      chatId,
+      deletedFor: { $ne: req.userId },
+      isDeletedForEveryone: false,
+      text: { $regex: q, $options: "i" },
+    })
+      .sort({ createdAt: -1 })
+      .limit(30)
+      .populate("senderId", "name username avatar");
+
+    res.json({ results });
+  }),
+  pin: asyncHandler(async (req: AuthRequest, res: Response) => {
+    await Chat.updateOne(
+      { _id: req.params.chatId, members: req.userId },
+      { $addToSet: { pinnedBy: req.userId } },
+    );
+    res.json({ message: "Pinned" });
+  }),
+
+  unpin: asyncHandler(async (req: AuthRequest, res: Response) => {
+    await Chat.updateOne(
+      { _id: req.params.chatId, members: req.userId },
+      { $pull: { pinnedBy: req.userId } },
+    );
+    res.json({ message: "Unpinned" });
+  }),
 };

@@ -11,5 +11,10 @@ router.post(
   requireAuth,
   messagesController.deleteForEveryone,
 );
+router.get("/starred/all", requireAuth, messagesController.listStarred);
+router.post("/:id/forward", requireAuth, messagesController.forward);
+router.post("/:id/star", requireAuth, messagesController.star);
+router.post("/:id/unstar", requireAuth, messagesController.unstar);
+router.post("/:id/react", requireAuth, messagesController.react);
 
 export default router;

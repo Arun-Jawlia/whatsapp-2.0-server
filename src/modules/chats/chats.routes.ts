@@ -22,7 +22,10 @@ router.get(
   requireAuth,
   groupExtraController.friendshipStatus,
 );
+router.post("/:chatId/pin", requireAuth, chatsController.pin);
+router.post("/:chatId/unpin", requireAuth, chatsController.unpin);
 router.get("/:chatId/messages", requireAuth, chatsController.listMessages);
 router.post("/:chatId/messages", requireAuth, chatsController.sendMessage);
+router.get("/:chatId/search", requireAuth, chatsController.searchMessages);
 
 export default router;

@@ -38,6 +38,11 @@ export interface IMessage extends Document {
   // delete for everyone
   isDeletedForEveryone: boolean;
 
+  reactions: Map<string, Types.ObjectId[]>;
+
+  starredBy: Types.ObjectId[];
+  forwardedFrom?: Types.ObjectId;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -71,10 +76,21 @@ const messageSchema = new Schema<IMessage>(
 
     isEdited: { type: Boolean, default: false },
     isDeletedForEveryone: { type: Boolean, default: false },
+    forwardedFrom: { type: Schema.Types.ObjectId, ref: "Message" },
+
+    reactions: {
+      type: Map,
+      of: [{ type: Schema.Types.ObjectId, ref: "User" }],
+      default: () => new Map(),
+    },
+
+    starredBy: [{ type: Schema.Types.ObjectId, ref: "User" }],
   },
   { timestamps: true },
 );
 
 messageSchema.index({ chatId: 1, createdAt: -1 });
+messageSchema.index({ starredBy: 1 });
+messageSchema.index({ chatId: 1, text: "text" }); // for search
 
 export const Message = mongoose.model<IMessage>("Message", messageSchema);
