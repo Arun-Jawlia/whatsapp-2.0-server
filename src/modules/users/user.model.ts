@@ -5,7 +5,10 @@ export interface IUser extends Document {
   username: string;
   email: string;
   password: string;
-  avatar?: string;
+  avatar?: {
+    url?: string;
+    public_id?: string;
+  };
   refreshToken?: string;
   isLocationEnabled: boolean;
   location: {
@@ -53,9 +56,15 @@ const userSchema = new Schema<IUser>(
     },
 
     avatar: {
-      type: String,
-      default: "",
-      maxlength: [500, "Avatar URL cannot exceed 500 characters"],
+      url: {
+        type: String,
+        default: "",
+        maxlength: [500, "Avatar URL cannot exceed 500 characters"],
+      },
+      public_id: {
+        type: String,
+        default: "",
+      },
     },
 
     refreshToken: {
