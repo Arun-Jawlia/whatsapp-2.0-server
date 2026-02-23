@@ -33,10 +33,21 @@ export const uploadService = {
             bytes: result.bytes,
             format: result.format,
           });
-        }
+        },
       );
 
       streamifier.createReadStream(file.buffer).pipe(stream);
     });
   },
+};
+
+export const deleteFromCloudinary = async (publicId?: string) => {
+  if (!publicId) return;
+
+  try {
+    await cloudinary.uploader.destroy(publicId);
+    console.log("image deleted", publicId)
+  } catch (err) {
+    console.error("Cloudinary delete failed:", err);
+  }
 };
