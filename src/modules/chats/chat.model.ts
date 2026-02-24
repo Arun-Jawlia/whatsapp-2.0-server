@@ -8,6 +8,11 @@ export interface IChat extends Document {
 
   members: Types.ObjectId[];
 
+  cover?: {
+    url?: string;
+    public_id?: string;
+  };
+
   // private chat only
   friendshipId?: Types.ObjectId;
 
@@ -55,11 +60,21 @@ const chatSchema = new Schema<IChat>(
     lastMessage: { type: Schema.Types.ObjectId, ref: "Message" },
 
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
-    
+
     lastRead: {
       type: Map,
       of: Date,
       default: () => new Map(),
+    },
+    cover: {
+      url: {
+        type: String,
+        default: "",
+      },
+      public_id: {
+        type: String,
+        default: "",
+      },
     },
   },
   { timestamps: true },

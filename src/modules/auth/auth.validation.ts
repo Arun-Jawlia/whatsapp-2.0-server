@@ -13,6 +13,19 @@ export const loginSchema = z.object({
 });
 
 export const changePasswordSchema = z.object({
-  oldPassword: z.string().min(8).max(128),
-  newPassword: z.string().min(8).max(128)
-})
+  oldPassword: z
+    .string()
+    .trim()
+    .min(8, "Old password must be at least 8 characters")
+    .max(128, "Old password must be at most 128 characters"),
+  newPassword: z
+    .string()
+    .trim()
+    .min(8, "Old password must be at least 8 characters")
+    .max(128, "Old password must be at most 128 characters"),
+});
+
+export const updateProfileSchema = z.object({
+  name: z.string().trim().min(2).max(50).optional(),
+  username: z.string().trim().min(3).max(30).optional(),
+});

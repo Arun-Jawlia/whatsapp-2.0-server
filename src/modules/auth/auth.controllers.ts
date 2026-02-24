@@ -10,6 +10,7 @@ import {
   registerSchema,
   loginSchema,
   changePasswordSchema,
+  updateProfileSchema,
 } from "./auth.validation";
 import { authService } from "./auth.services";
 import { env } from "../../config/env";
@@ -173,36 +174,86 @@ export const authController = {
 
     await user.save();
 
-    res.json({ user });
+    return res.status(200).json({
+      message: "Avatar updated successfully",
+      avatar: user.avatar,
+    });
   }),
 
   //  Change Password
   changePassword: asyncHandler(async (req: Request, res: Response) => {
     const parsed = changePasswordSchema.safeParse(req.body);
 
-    if (!parsed.success) return res.status(400).json(parsed.error);
+    if (!parsed.success) {
+      return res.status(400).json({
+        message: "Invalid input",
+        errors: parsed.error.flatten(),
+      });
+    }
 
+    const { oldPassword, newPassword } = parsed.data;
     const user = await User.findById(req.userId).select("+password");
 
     if (!user) {
       throw new ApiError(404, "User not found");
     }
 
-    const isPasswordMatch = await bcrypt.compare(
-      req.body.oldPassword,
-      user.password,
-    );
-    if (!isPasswordMatch) throw new ApiError(404, "Wrong old Password");
+    const isPasswordMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isPasswordMatch) {
+      throw new ApiError(401, "Old password is incorrect");
+    }
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(req.body.newPassword, salt);
+    // If NO pre-save hook exists
+    user.password = await bcrypt.hash(newPassword, 10);
 
-    user.password = hashedPassword;
+    // Optional but recommended
+    user.refreshToken = undefined;
 
     await user.save();
+
     return res.status(200).json({
-      message: "Password Update successfully",
+      message: "Password updated successfully",
     });
   }),
-  updateProfile: asyncHandler(async (req: Request, res: Response) => {}),
+  updateProfile: asyncHandler(async (req: Request, res: Response) => {
+    const parsed = updateProfileSchema.safeParse(req.body);
+
+    if (!parsed.success) {
+      return res.status(400).json({
+        message: "Invalid input",
+        errors: parsed.error.flatten(),
+      });
+    }
+
+    const updates = parsed.data;
+
+    const user = await User.findById(req.userId);
+    if (!user) {
+      throw new ApiError(404, "User not found");
+    }
+
+    if (updates.username && updates.username !== user.username) {
+      const usernameExists = await User.findOne({ username: updates.username });
+      if (usernameExists) {
+        throw new ApiError(409, "Username already in use");
+      }
+    }
+
+    /* ---------- Apply updates ---------- */
+    if (updates.name) user.name = updates.name;
+    if (updates.username) user.username = updates.username;
+
+    await user.save();
+
+    return res.status(200).json({
+      message: "Profile updated successfully",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        username: user.username,
+        avatar: user.avatar,
+      },
+    });
+  }),
 };
