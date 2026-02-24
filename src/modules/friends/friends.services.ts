@@ -12,37 +12,50 @@ export const friendsService = {
   },
 
   sendRequest: async (fromUserId: string, toUserId: string) => {
-    if (fromUserId === toUserId) throw new ApiError(400, "Cannot add yourself");
+    if (fromUserId === toUserId) {
+      throw new ApiError(400, "Cannot add yourself");
+    }
+
+    // already friends
     const [u1, u2] = [fromUserId, toUserId].sort();
+    const isFriend = await Friendship.findOne({ user1: u1, user2: u2 });
+    if (isFriend) {
+      throw new ApiError(409, "Already friends");
+    }
 
-    const alreadyFriends = await Friendship.findOne({ user1: u1, user2: u2 });
-    if (alreadyFriends) throw new ApiError(409, "Already firends");
-
-    // prevent reverse pending request
+    // reverse pending
     const reverse = await FriendRequest.findOne({
       fromUser: toUserId,
       toUser: fromUserId,
       status: "pending",
     });
-
     if (reverse) {
       throw new ApiError(409, "User already sent you a request");
     }
 
-    try {
-      const req = await FriendRequest.create({
-        fromUser: fromUserId,
-        toUser: toUserId,
-        status: "pending",
-      });
-      return req;
-    } catch (err: any) {
-      // duplicate key means already requested
-      if (err.code === 11000) {
+    // same-direction request
+    const existing = await FriendRequest.findOne({
+      fromUser: fromUserId,
+      toUser: toUserId,
+    });
+
+    if (existing) {
+      if (existing.status === "pending") {
         throw new ApiError(409, "Request already sent");
       }
-      throw err;
+
+      // cancelled / rejected → resend
+      existing.status = "pending";
+      await existing.save();
+      return existing;
     }
+
+    // create new
+    return FriendRequest.create({
+      fromUser: fromUserId,
+      toUser: toUserId,
+      status: "pending",
+    });
   },
 
   acceptRequest: async (userId: string, requestId: string) => {

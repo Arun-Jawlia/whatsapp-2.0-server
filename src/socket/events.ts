@@ -17,10 +17,14 @@ export const registerSocketEvents = (io: Server) => {
     // join personal user room (for direct notifications)
     socket.join(userId);
 
-    // broadcast presence
+    // broadcast presence- user is online or offline
     io.emit("presence:online", { userId });
 
-    // join all chat rooms
+    socket.emit("presence:sync", {
+      userIds: Array.from(onlineUsers.keys()),
+    });
+
+    // join all chat rooms of this user
     const chats = await Chat.find({ members: userId }).select("_id");
     chats.forEach((c) => socket.join(c._id.toString()));
 

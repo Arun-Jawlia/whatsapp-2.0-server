@@ -19,7 +19,7 @@ export const usersController = {
           coordinates: [parsed.data.lng, parsed.data.lat],
         },
       },
-      { new: true },
+      { returnDocument: "after" },
     ).select("-password -refreshToken");
 
     res.json({ message: "Location updated", user });

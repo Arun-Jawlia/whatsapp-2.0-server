@@ -16,7 +16,7 @@ router.post(
   upload.single("file"),
   authController.uploadAvatar,
 );
-router.put("/change-password", authController.changePassword);
-router.post("/update-profile", authController.updateProfile);
+router.put("/change-password", requireAuth, authController.changePassword);
+router.post("/update-profile", requireAuth, authController.updateProfile);
 
 export default router;
