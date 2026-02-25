@@ -14,6 +14,8 @@ export const chatsController = {
       .populate({ path: "lastMessage", select: "type text createdAt senderId" })
       .sort({ updatedAt: -1 });
 
+    await ensureAiChatForUser(req.userId!);
+
     const chatsWithUnread = [];
 
     for (const c of chats) {

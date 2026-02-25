@@ -1,7 +1,6 @@
 import { Server } from "socket.io";
 import http from "http";
-import { env } from "../config/env";
-import { socketAuth } from "./auth";
+import { socketAuth } from "./middleware/socketAuth";
 import { registerSocketEvents } from "./events";
 import { setIO } from "./io";
 
@@ -16,8 +15,6 @@ export const initSocket = (server: http.Server) => {
   io.use(socketAuth);
 
   registerSocketEvents(io);
-
-  console.log("✅ Socket.IO initialized");
 
   return setIO(io);
 };

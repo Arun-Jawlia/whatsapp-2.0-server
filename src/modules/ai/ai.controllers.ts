@@ -76,6 +76,10 @@ export const aiController = {
       chatId: chat._id,
       message: aiMsg,
     });
+    // io.to(chat._id.toString()).emit("message:new", {
+    //   chatId: chat._id,
+    //   message: userMsg,
+    // });
 
     chat.lastMessage = aiMsg._id as any;
     await chat.save();

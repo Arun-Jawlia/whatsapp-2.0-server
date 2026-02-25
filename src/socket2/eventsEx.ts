@@ -3,7 +3,7 @@ import { Chat } from "../modules/chats/chat.model";
 import { Message } from "../modules/messages/message.model";
 import { notificationService } from "../modules/notifications/notification.services";
 
-const onlineUsers = new Map<string, string>();
+const onlineUsers = new Map<string, Set<string>>();
 // userId -> socketId
 
 export const registerSocketEvents = (io: Server) => {
@@ -11,18 +11,29 @@ export const registerSocketEvents = (io: Server) => {
     const userId = socket.userId as string;
     if (!userId) return;
 
-    // track online user
-    onlineUsers.set(userId, socket.id);
+    /* ---------- ONLINE ---------- */
+    if (!onlineUsers.has(userId)) {
+      onlineUsers.set(userId, new Set());
+    }
 
     // join personal user room (for direct notifications)
+    onlineUsers.get(userId)!.add(socket.id);
     socket.join(userId);
 
     // broadcast presence- user is online or offline
+    io.emit("user:online", { userId });
     io.emit("presence:online", { userId });
-
     socket.emit("presence:sync", {
       userIds: Array.from(onlineUsers.keys()),
     });
+
+    /* ---------- CHAT JOIN / LEAVE ---------- */
+    socket.on("chat:join", ({ chatId }: { chatId: string }) =>
+      socket.join(chatId),
+    );
+    socket.on("chat:leave", ({ chatId }: { chatId: string }) =>
+      socket.leave(chatId),
+    );
 
     // join all chat rooms of this user
     const chats = await Chat.find({ members: userId }).select("_id");
@@ -156,12 +167,68 @@ export const registerSocketEvents = (io: Server) => {
       socket.join(chatId);
     });
 
+    /* ---------- EDIT ---------- */
+    socket.on(
+      "message:edit",
+      async ({ messageId, text }: { messageId: string; text: string }) => {
+        const msg = await Message.findByIdAndUpdate(
+          messageId,
+          { text, isEdited: true },
+          { new: true },
+        );
+        if (!msg) return;
+
+        io.to(msg.chatId.toString()).emit("message:edited", {
+          messageId,
+          text,
+        });
+      },
+    );
+
+    /* ---------- DELETE ---------- */
+    socket.on(
+      "message:delete",
+      async ({ messageId }: { messageId: string }) => {
+        const msg = await Message.findById(messageId);
+        if (!msg) return;
+
+        io.to(msg.chatId.toString()).emit("message:deleted", { messageId });
+      },
+    );
+
+    /* ---------- REACTIONS ---------- */
+    socket.on(
+      "message:react",
+      async ({
+        messageId,
+        reactions,
+      }: {
+        messageId: string;
+        reactions: string;
+      }) => {
+        const msg = await Message.findById(messageId);
+        if (!msg) return;
+
+        io.to(msg.chatId.toString()).emit("message:reaction", {
+          messageId,
+          reactions,
+        });
+      },
+    );
+
     // ----------------------------
     // Disconnect
     // ----------------------------
     socket.on("disconnect", () => {
-      onlineUsers.delete(userId);
-      io.emit("presence:offline", { userId });
+      const sockets = onlineUsers.get(userId);
+      if (!sockets) return;
+
+      sockets.delete(userId);
+      if (sockets.size === 0) {
+        onlineUsers.delete(userId);
+        io.emit("user:offline", { userId });
+        io.emit("presence:offline", { userId });
+      }
     });
   });
 };
