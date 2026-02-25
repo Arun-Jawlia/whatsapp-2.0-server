@@ -13,6 +13,7 @@ import {
 export const registerSocketEvents = (io: Server) => {
   io.on("connection", async (socket: AuthSocket) => {
     const userId = socket.userId;
+    console.log(socket.userId, "socket connect")
     if (!userId) return;
 
     /* -------- PRESENCE -------- */
