@@ -2,10 +2,15 @@ const onlineUsers = new Map<string, Set<string>>();
 // userId -> socketIds
 
 export const addUserSocket = (userId: string, socketId: string) => {
-  if (!onlineUsers.has(userId)) {
-    onlineUsers.set(userId, new Set());
+  const sockets = onlineUsers.get(userId);
+
+  if (!sockets) {
+    onlineUsers.set(userId, new Set([socketId]));
+    return true; // user just came online
   }
-  onlineUsers.get(userId)!.add(socketId);
+
+  sockets.add(socketId);
+  return false; // user was already online
 };
 
 export const removeUserSocket = (userId: string, socketId: string) => {

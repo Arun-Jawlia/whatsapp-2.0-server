@@ -2,23 +2,31 @@ import { Server } from "socket.io";
 import { AuthSocket } from "../socket.types";
 import { Chat } from "../../modules/chats/chat.model";
 
-export const registerChatEvents = (
-  io: Server,
-  socket: AuthSocket
-) => {
-  socket.on("chat:join", async ({ chatId }) => {
-    const chat = await Chat.findById(chatId);
-    if (!chat) return;
+export const registerChatEvents = (io: Server, socket: AuthSocket) => {
+  socket.on("chat:join", async ({ chatId }, ack) => {
+    if (!chatId) {
+      return ack?.({ ok: false, error: "chatId required" });
+    }
 
-    const isMember = chat.members.some(
-      (m) => m.toString() === socket.userId
-    );
-    if (!isMember) return;
+    const chat = await Chat.findById(chatId).select("_id members");
+    if (!chat) {
+      return ack?.({ ok: false, error: "Chat not found" });
+    }
+
+    const isMember = chat.members.some((m) => m.toString() === socket.userId);
+    if (!isMember) {
+      return ack?.({ ok: false, error: "Forbidden" });
+    }
 
     socket.join(`chat:${chatId}`);
+
+    ack?.({ ok: true, chatId });
   });
 
-  socket.on("chat:leave", ({ chatId }) => {
+  socket.on("chat:leave", ({ chatId }, ack) => {
+    if (!chatId) return;
+
     socket.leave(`chat:${chatId}`);
+    ack?.({ ok: true });
   });
 };

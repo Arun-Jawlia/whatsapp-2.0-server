@@ -16,16 +16,18 @@ export const registerSocketEvents = (io: Server) => {
     if (!userId) return;
 
     /* -------- PRESENCE -------- */
-    addUserSocket(userId, socket.id);
+    const isFirstConnection = addUserSocket(userId, socket.id);
     socket.join(`user:${userId}`);
 
-    // ✅ authoritative snapshot (only to this socket)
+    // authoritative snapshot (exclude self)
     socket.emit("presence:sync", {
-      userIds: getOnlineUserIds(),
+      userIds: getOnlineUserIds().filter((id) => id !== userId),
     });
 
-    // ✅ incremental update (to others only)
-    socket.broadcast.emit("presence:online", { userId });
+    // emit online ONLY if user just came online
+    if (isFirstConnection) {
+      socket.broadcast.emit("presence:online", { userId });
+    }
 
     /* -------- REGISTER EVENTS -------- */
     registerChatEvents(io, socket);
