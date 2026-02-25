@@ -80,7 +80,7 @@ export const registerMessageEvents = (io: Server, socket: AuthSocket) => {
           editedAt: new Date(),
         },
       },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     if (!msg) return ack?.({ ok: false });
@@ -104,7 +104,7 @@ export const registerMessageEvents = (io: Server, socket: AuthSocket) => {
           deletedAt: new Date(),
         },
       },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     if (!msg) return ack?.({ ok: false });

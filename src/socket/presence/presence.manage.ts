@@ -1,6 +1,8 @@
 const onlineUsers = new Map<string, Set<string>>();
 // userId -> socketIds
 
+console.log(onlineUsers)
+
 export const addUserSocket = (userId: string, socketId: string) => {
   const sockets = onlineUsers.get(userId);
 

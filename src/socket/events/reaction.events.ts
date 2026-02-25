@@ -19,7 +19,7 @@ export const registerReactionEvents = (io: Server, socket: AuthSocket) => {
       {
         $pull: { [`reactions.${emoji}`]: userId },
       },
-      { new: true },
+      { returnDocument: "after" },
     ).select("chatId");
 
     // If removed → emit unreact
@@ -40,7 +40,7 @@ export const registerReactionEvents = (io: Server, socket: AuthSocket) => {
       {
         $addToSet: { [`reactions.${emoji}`]: userId },
       },
-      { new: true },
+      { returnDocument: "after" },
     ).select("chatId");
 
     if (!added) {
