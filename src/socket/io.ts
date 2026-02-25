@@ -4,6 +4,7 @@ let io: Server | null = null;
 
 export const setIO = (serverIO: Server) => {
   io = serverIO;
+  return io
 };
 
 export const getIO = () => {
