@@ -6,44 +6,80 @@ import { isUserOnline } from "../presence/presence.manage";
 
 export const registerMessageEvents = (io: Server, socket: AuthSocket) => {
   socket.on("message:send", async ({ chatId, text, replyTo }, ack) => {
-    if (!text?.trim()) {
-      return ack?.({ ok: false, error: "Empty message" });
-    }
-
-    const chat = await Chat.findById(chatId);
-    if (!chat) return ack?.({ ok: false, error: "Chat not found" });
-
-    const isMember = chat.members.some((m) => m.toString() === socket.userId);
-    if (!isMember) return ack?.({ ok: false, error: "Forbidden" });
-
-    // Users currently in chat room (REAL delivery)
-    const socketsInRoom = await io.in(`chat:${chatId}`).fetchSockets();
-    const deliveredTo = new Set<string>();
-
-    for (const s of socketsInRoom) {
-      if (s.userId && s.userId !== socket.userId) {
-        deliveredTo.add(s.userId);
+    try {
+      if (!text?.trim()) {
+        return ack?.({ ok: false, error: "Empty message" });
       }
+
+      const chat = await Chat.findById(chatId);
+      if (!chat) return ack?.({ ok: false, error: "Chat not found" });
+
+      const isMember = chat.members.some((m) => m.toString() === socket.userId);
+      if (!isMember) return ack?.({ ok: false, error: "Forbidden" });
+
+      // 🔹 Resolve replyTo safely
+      let replyMsg = null;
+      if (replyTo) {
+        replyMsg = await Message.findOne({
+          _id: replyTo,
+          chatId,
+          isDeletedForEveryone: false,
+        }).select("_id");
+      }
+
+      // 🔹 Users currently in chat room → delivered (NOT read)
+      const socketsInRoom = await io.in(`chat:${chatId}`).fetchSockets();
+
+      const deliveredTo = new Set<string>();
+      for (const s of socketsInRoom) {
+        if (s.userId && s.userId !== socket.userId) {
+          deliveredTo.add(s.userId);
+        }
+      }
+
+      const msg = await Message.create({
+        chatId,
+        senderId: socket.userId,
+        text: text.trim(),
+        type: "text",
+        replyTo: replyMsg?._id || null,
+        readBy: [socket.userId],
+        deliveredTo: Array.from(deliveredTo),
+      });
+
+      await Chat.updateOne(
+        { _id: chatId },
+        {
+          $set: {
+            lastMessage: msg._id,
+            updatedAt: new Date(),
+          },
+        },
+      );
+
+      const populated = await Message.findById(msg._id)
+        .populate("senderId", "name username avatar")
+        .populate("replyTo", "text senderId createdAt");
+
+      io.to(`chat:${chatId}`).emit("message:new", {
+        chatId,
+        message: populated,
+      });
+      for (const member of chat.members) {
+        const userId = member.toString();
+
+        io.to(`user:${userId}`).emit("chat:update", {
+          chatId,
+          lastMessage: populated,
+          incrementUnread: userId !== socket.userId,
+        });
+      }
+
+      ack?.({ ok: true, messageId: msg._id });
+    } catch (err) {
+      console.error("message:send failed", err);
+      ack?.({ ok: false, error: "Internal error" });
     }
-
-    const msg = await Message.create({
-      chatId,
-      senderId: socket.userId,
-      text: text.trim(),
-      type: "text",
-      replyTo: replyTo || null,
-      readBy: [socket.userId],
-      deliveredTo: Array.from(deliveredTo),
-    });
-
-    await Chat.updateOne({ _id: chatId }, { $set: { lastMessage: msg._id } });
-
-    io.to(`chat:${chatId}`).emit("message:new", {
-      chatId,
-      message: msg,
-    });
-
-    ack?.({ ok: true, messageId: msg._id });
   });
 
   /* READ */
@@ -112,6 +148,17 @@ export const registerMessageEvents = (io: Server, socket: AuthSocket) => {
     io.to(`chat:${msg.chatId}`).emit("message:deleted", {
       messageId,
     });
+    // 🔥 ALSO update chat list
+    for (const member of msg.chatId?.members) {
+      const memberId = member.toString();
+      io.to(`user:${memberId}`).emit("chat:update", {
+        chatId: msg.chatId,
+        lastMessage: {
+          text: "This message was deleted",
+          type: "system",
+        },
+      });
+    }
 
     ack?.({ ok: true });
   });
