@@ -5,7 +5,6 @@ import { AuthRequest } from "../../middlewares/auth.middleware";
 import { ensureAiChatForUser } from "./ai.chat";
 import { Message } from "../messages/message.model";
 import { aiService } from "./ai.services";
-import { Chat } from "../chats/chat.model";
 import { getIO } from "../../socket/io";
 
 export const aiController = {

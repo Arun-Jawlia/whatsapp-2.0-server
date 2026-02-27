@@ -9,12 +9,12 @@ import { ensureAiChatForUser } from "../ai/ai.chat";
 
 export const chatsController = {
   listChats: asyncHandler(async (req: AuthRequest, res: Response) => {
+    await ensureAiChatForUser(req.userId!);
     const chats = await Chat.find({ members: req.userId })
       .populate("members", "name username email avatar")
       .populate({ path: "lastMessage", select: "type text createdAt senderId" })
       .sort({ updatedAt: -1 });
 
-    await ensureAiChatForUser(req.userId!);
 
     const chatsWithUnread = [];
 

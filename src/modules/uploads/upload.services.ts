@@ -1,6 +1,17 @@
 import { cloudinary } from "../../config/cloudinary";
 import streamifier from "streamifier";
 
+type CloudinaryType = "image" | "video" | "raw";
+
+const getResourceType = (mimeType?: string): CloudinaryType => {
+  if (!mimeType) return "raw";
+
+  if (mimeType.startsWith("image/")) return "image";
+  if (mimeType.startsWith("video/")) return "video";
+  if (mimeType.startsWith("audio/")) return "video"; // 🔥 IMPORTANT
+  return "raw";
+};
+
 export const uploadService = {
   uploadToCloudinary: async (file: Express.Multer.File) => {
     const isImage = file.mimetype.startsWith("image/");
@@ -41,12 +52,13 @@ export const uploadService = {
   },
 };
 
-export const deleteFromCloudinary = async (publicId?: string) => {
+export const deleteFromCloudinary = async (publicId?: string, mimeType?: string) => {
   if (!publicId) return;
 
   try {
-    await cloudinary.uploader.destroy(publicId);
-    console.log("image deleted", publicId)
+    const resourceType = getResourceType(mimeType);
+    await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
+    console.log("image deleted", publicId);
   } catch (err) {
     console.error("Cloudinary delete failed:", err);
   }

@@ -5,6 +5,7 @@ import { AuthRequest } from "../../middlewares/auth.middleware";
 import { Message } from "./message.model";
 import { Chat } from "../chats/chat.model";
 import { getIO } from "../../socket/io";
+import { deleteFromCloudinary } from "../uploads/upload.services";
 
 export const messagesController = {
   edit: asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -42,23 +43,60 @@ export const messagesController = {
 
   deleteForMe: asyncHandler(async (req: AuthRequest, res: Response) => {
     const id = req.params.id;
+    const userId = req.userId!;
 
     const msg = await Message.findById(id);
     if (!msg) throw new ApiError(404, "Message not found");
 
-    // only members can delete for me
     const chat = await Chat.findById(msg.chatId);
     if (!chat) throw new ApiError(404, "Chat not found");
 
-    const isMember = chat.members.some((m) => m.toString() === req.userId);
+    const isMember = chat.members.some((m) => m.toString() === userId);
     if (!isMember) throw new ApiError(403, "Not allowed");
 
-    await Message.updateOne(
-      { _id: id },
-      { $addToSet: { deletedFor: req.userId } },
+    // 1️⃣ Add user to deletedFor
+    await Message.updateOne({ _id: id }, { $addToSet: { deletedFor: userId } });
+
+    // 2️⃣ Reload message (to get updated deletedFor)
+    const updatedMsg = await Message.findById(id);
+    if (!updatedMsg) return res.json({ ok: true });
+
+    // 3️⃣ Check if ALL members deleted
+    const allDeleted = chat.members.every((memberId) =>
+      updatedMsg.deletedFor?.some(
+        (uid) => uid.toString() === memberId.toString(),
+      ),
     );
 
-    res.json({ message: "Deleted for me" });
+    if (allDeleted) {
+      // 🔥 DELETE MEDIA FROM STORAGE (if exists)
+      if (updatedMsg.mediaMeta?.id) {
+        try {
+          await deleteFromCloudinary(
+            updatedMsg.mediaMeta.id,
+            updatedMsg.mediaMeta.mimeType,
+          );
+        } catch (err) {
+          console.error("Media cleanup failed:", err);
+        }
+      }
+
+      // 🔥 Mark as globally deleted (optional but recommended)
+      updatedMsg.isDeletedForEveryone = true;
+      updatedMsg.text = "This message was deleted";
+      updatedMsg.mediaUrl = undefined;
+      updatedMsg.mediaMeta = undefined;
+      updatedMsg.deletedAt = new Date();
+
+      await updatedMsg.save();
+    }
+    const io = getIO();
+    io.to(`chat:${updatedMsg.chatId}`).emit("message:deleted", {
+      chatId: updatedMsg.chatId,
+      messageId: updatedMsg._id,
+    });
+
+    res.json({ ok: true });
   }),
 
   deleteForEveryone: asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -71,19 +109,34 @@ export const messagesController = {
       throw new ApiError(403, "Not allowed");
     }
 
+    // 🔥 DELETE MEDIA FROM STORAGE (if exists)
+    if (msg.mediaMeta?.id) {
+      try {
+        await deleteFromCloudinary(msg.mediaMeta.id, msg.mediaMeta.mimeType);
+        console.log("Media deleted from Cloudinary:", msg.mediaMeta.id);
+      } catch (err) {
+        console.error("Media deletion failed:", err);
+      }
+    }
+
+    // 🔥 UPDATE MESSAGE STATE
     msg.isDeletedForEveryone = true;
+    msg.deletedAt = new Date();
+
     msg.text = "This message was deleted";
-    msg.mediaUrl = "";
-    msg.mediaMeta = {};
+    msg.mediaUrl = undefined;
+    msg.mediaMeta = undefined;
+
     await msg.save();
 
+    // 🔥 EMIT SOCKET EVENT
     const io = getIO();
-    io.to(msg.chatId.toString()).emit("message:deleted", {
+    io.to(`chat:${msg.chatId}`).emit("message:deleted", {
       chatId: msg.chatId,
       messageId: msg._id,
     });
 
-    res.json({ message: "Deleted for everyone" });
+    res.json({ ok: true });
   }),
   forward: asyncHandler(async (req: AuthRequest, res: Response) => {
     const id = req.params.id;
@@ -196,7 +249,7 @@ export const messagesController = {
     await msg.save();
 
     const io = getIO();
-    io.to(msg.chatId.toString()).emit("message:reaction", {
+    io.to(`chat:${msg.chatId}`).emit("message:reaction", {
       chatId: msg.chatId,
       messageId: msg._id,
       reactions: Object.fromEntries(msg.reactions),

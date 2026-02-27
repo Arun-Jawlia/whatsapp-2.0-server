@@ -12,37 +12,39 @@ export interface IMessage extends Document {
   chatId: Types.ObjectId;
   senderId?: Types.ObjectId | null;
   type: MessageType;
-  
+
   text?: string;
-  
+
   mediaUrl?: string;
   mediaMeta?: {
     fileName?: string;
     fileSize?: number;
     mimeType?: string;
+    id?: string;
   };
-  
+
   replyTo?: Types.ObjectId;
-  
+
   // per-user deletes (delete for me)
   deletedFor: Types.ObjectId[];
-  
+
   // per-user delivery/read
   deliveredTo: Types.ObjectId[];
   readBy: Types.ObjectId[];
-  
+
   // edit
   isEdited: boolean;
-  
+
   // delete for everyone
   isDeletedForEveryone: boolean;
-  
+
   reactions: Map<string, Types.ObjectId[]>;
-  
+
   starredBy: Types.ObjectId[];
   forwardedFrom?: Types.ObjectId;
-  
-  editedAt?:Date;
+
+  editedAt?: Date;
+  deletedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -65,6 +67,7 @@ const messageSchema = new Schema<IMessage>(
       fileName: String,
       fileSize: Number,
       mimeType: String,
+      id: String,
     },
 
     replyTo: { type: Schema.Types.ObjectId, ref: "Message" },
@@ -87,7 +90,10 @@ const messageSchema = new Schema<IMessage>(
     starredBy: [{ type: Schema.Types.ObjectId, ref: "User" }],
     editedAt: {
       type: Date,
-    }
+    },
+    deletedAt: {
+      type: Date,
+    },
   },
   { timestamps: true },
 );

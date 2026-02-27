@@ -44,6 +44,7 @@ export const uploadController = {
         fileName: req.file.originalname,
         fileSize: req.file.size,
         mimeType: req.file.mimetype,
+        id: uploaded.publicId,
       },
       deliveredTo: [],
       readBy: [userId],
@@ -61,7 +62,7 @@ export const uploadController = {
 
     // emit realtime
     const io = getIO();
-    io.to(chatId).emit("message:new", { chatId, message: populated });
+    io.to(`chat:${chatId}`).emit("message:new", { chatId, message: populated });
 
     res.status(201).json({ message: populated });
   }),

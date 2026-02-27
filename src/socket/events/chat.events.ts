@@ -1,9 +1,11 @@
 import { Server } from "socket.io";
 import { AuthSocket } from "../socket.types";
 import { Chat } from "../../modules/chats/chat.model";
+import { Message } from "../../modules/messages/message.model";
 
 export const registerChatEvents = (io: Server, socket: AuthSocket) => {
   socket.on("chat:join", async ({ chatId }, ack) => {
+    const userId = socket.userId;
     if (!chatId) {
       return ack?.({ ok: false, error: "chatId required" });
     }
@@ -19,6 +21,18 @@ export const registerChatEvents = (io: Server, socket: AuthSocket) => {
     }
 
     socket.join(`chat:${chatId}`);
+
+    // 🔥 MARK UNDELIVERED MESSAGES AS DELIVERED
+    await Message.updateMany(
+      {
+        chatId,
+        senderId: { $ne: userId },
+        deliveredTo: { $ne: userId },
+      },
+      {
+        $addToSet: { deliveredTo: userId },
+      },
+    );
 
     ack?.({ ok: true, chatId });
   });
