@@ -4,7 +4,7 @@ import { ApiError } from "../../utils/ApiError";
 import { AuthRequest } from "../../middlewares/auth.middleware";
 import { ensureAiChatForUser } from "./ai.chat";
 import { Message } from "../messages/message.model";
-import { aiService } from "./ai.services";
+import { aiGroqService as aiService } from "./ai.services";
 import { getIO } from "../../socket/io";
 
 export const aiController = {
@@ -18,9 +18,7 @@ export const aiController = {
 
     const userId = req.userId!;
     const chat = await ensureAiChatForUser(userId);
-
-    // 1) store user message
-    const userMsg = await Message.create({
+    const userMsgDoc = await Message.create({
       chatId: chat._id,
       senderId: userId,
       type: "text",
@@ -28,6 +26,14 @@ export const aiController = {
       readBy: [userId],
       deletedFor: [],
     });
+
+    const userMsg = userMsgDoc.toObject();
+
+    io.to(`chat:${userMsg.chatId}`).emit("message:new", {
+      chatId: chat._id,
+      message: userMsg,
+    });
+
 
     chat.lastMessage = userMsg._id as any;
     await chat.save();
@@ -60,25 +66,22 @@ export const aiController = {
 
     // 3) call AI
     const aiText = await aiService.generate(promptMessages);
-
+    const finalText = aiText.trim() || "Sorry, I couldn't generate a response.";
     // 4) store AI reply (senderId = null)
-    const aiMsg = await Message.create({
+    const aiMsgDoc = await Message.create({
       chatId: chat._id,
       senderId: null,
       type: "text",
-      text: aiText,
+      text: finalText,
       readBy: [userId],
       deletedFor: [],
     });
+    const aiMsg = aiMsgDoc.toObject();
 
-    io.to(chat._id.toString()).emit("message:new", {
+    io.to(`chat:${aiMsg.chatId}`).emit("message:new", {
       chatId: chat._id,
       message: aiMsg,
     });
-    // io.to(chat._id.toString()).emit("message:new", {
-    //   chatId: chat._id,
-    //   message: userMsg,
-    // });
 
     chat.lastMessage = aiMsg._id as any;
     await chat.save();
