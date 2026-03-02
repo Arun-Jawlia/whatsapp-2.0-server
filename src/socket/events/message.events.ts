@@ -5,107 +5,112 @@ import { Message } from "../../modules/messages/message.model";
 import { Notification } from "../../modules/notifications/notification.model";
 
 export const registerMessageEvents = (io: Server, socket: AuthSocket) => {
-  socket.on("message:send", async ({ chatId, text, replyTo }, ack) => {
-    try {
-      if (!text?.trim()) {
-        return ack?.({ ok: false, error: "Empty message" });
-      }
-
-      const chat = await Chat.findById(chatId);
-      if (!chat) return ack?.({ ok: false, error: "Chat not found" });
-
-      const isMember = chat.members.some((m) => m.toString() === socket.userId);
-      if (!isMember) return ack?.({ ok: false, error: "Forbidden" });
-
-      // 🔹 Resolve replyTo safely
-      let replyMsg = null;
-      if (replyTo) {
-        replyMsg = await Message.findOne({
-          _id: replyTo,
-          chatId,
-          isDeletedForEveryone: false,
-        }).select("_id");
-      }
-
-      // 🔹 Users currently in chat room → delivered (NOT read)
-      const socketsInRoom = await io.in(`chat:${chatId}`).fetchSockets();
-
-      const deliveredTo = new Set<string>();
-      for (const s of socketsInRoom) {
-        if (s.userId && s.userId !== socket.userId) {
-          deliveredTo.add(s.userId);
+  socket.on(
+    "message:send",
+    async ({ chatId, replyTo, iv, ciphertext , text}, ack) => {
+      try {
+        if (!ciphertext) {
+          return ack?.({ ok: false, error: "Empty message" });
         }
-      }
 
-      const msg = await Message.create({
-        chatId,
-        senderId: socket.userId,
-        text: text.trim(),
-        type: "text",
-        replyTo: replyMsg?._id || null,
-        readBy: [socket.userId],
-        deliveredTo: Array.from(deliveredTo),
-      });
+        const chat = await Chat.findById(chatId);
+        if (!chat) return ack?.({ ok: false, error: "Chat not found" });
 
-      await Chat.updateOne(
-        { _id: chatId },
-        {
-          $set: {
-            lastMessage: msg._id,
-            updatedAt: new Date(),
-          },
-        },
-      );
+        const isMember = chat.members.some(
+          (m) => m.toString() === socket.userId,
+        );
+        if (!isMember) return ack?.({ ok: false, error: "Forbidden" });
 
-      const populated = await Message.findById(msg._id)
-        .populate("senderId", "name username avatar")
-        .populate("replyTo", "text senderId createdAt");
+        // 🔹 Resolve replyTo safely
+        let replyMsg = null;
+        if (replyTo) {
+          replyMsg = await Message.findOne({
+            _id: replyTo,
+            chatId,
+            isDeletedForEveryone: false,
+          }).select("_id");
+        }
 
-      io.to(`chat:${chatId}`).emit("message:new", {
-        chatId,
-        message: populated,
-      });
-      const receivers: string[] = [];
+        // 🔹 Users currently in chat room → delivered (NOT read)
+        const socketsInRoom = await io.in(`chat:${chatId}`).fetchSockets();
 
-      for (const member of chat.members) {
-        const userId = member.toString();
+        const deliveredTo = new Set<string>();
+        for (const s of socketsInRoom) {
+          if (s.userId && s.userId !== socket.userId) {
+            deliveredTo.add(s.userId);
+          }
+        }
 
-        io.to(`user:${userId}`).emit("chat:update", {
+        const msg = await Message.create({
           chatId,
-          lastMessage: populated,
-          incrementUnread: userId !== socket.userId,
+          senderId: socket.userId,
+          type: "text",
+          replyTo: replyMsg?._id || null,
+          readBy: [socket.userId],
+          deliveredTo: Array.from(deliveredTo),
+          ciphertext,
+          iv,
         });
 
-        if (userId !== socket.userId) {
-          receivers.push(userId);
-        }
-      }
-
-      if (receivers.length) {
-        const created = await Notification.insertMany(
-          receivers.map((userId) => ({
-            userId,
-            type: "new_message",
-            title: "New Message",
-            body: text.trim(),
-            data: { chatId },
-            isRead: false,
-          })),
+        await Chat.updateOne(
+          { _id: chatId },
+          {
+            $set: {
+              lastMessage: msg._id,
+              updatedAt: new Date(),
+            },
+          },
         );
 
-        created.forEach((notif) => {
-          io.to(`user:${notif.userId}`).emit("notification:new", {
-            notification: notif,
-          });
-        });
-      }
+        const populated = await Message.findById(msg._id)
+          .populate("senderId", "name username avatar")
+          .populate("replyTo", "text senderId createdAt");
 
-      ack?.({ ok: true, messageId: msg._id });
-    } catch (err) {
-      console.error("message:send failed", err);
-      ack?.({ ok: false, error: "Internal error" });
-    }
-  });
+        io.to(`chat:${chatId}`).emit("message:new", {
+          chatId,
+          message: populated,
+        });
+        const receivers: string[] = [];
+
+        for (const member of chat.members) {
+          const userId = member.toString();
+
+          io.to(`user:${userId}`).emit("chat:update", {
+            chatId,
+            lastMessage: populated,
+            incrementUnread: userId !== socket.userId,
+          });
+
+          if (userId !== socket.userId) {
+            receivers.push(userId);
+          }
+        }
+
+        if (receivers.length) {
+          const created = await Notification.insertMany(
+            receivers.map((userId) => ({
+              userId,
+              type: "new_message",
+              title: "New Message",
+              body: text.trim(),
+              data: { chatId },
+              isRead: false,
+            })),
+          );
+
+          created.forEach((notif) => {
+            io.to(`user:${notif.userId}`).emit("notification:new", {
+              notification: notif,
+            });
+          });
+        }
+
+        ack?.({ ok: true, messageId: msg._id });
+      } catch (err) {
+        ack?.({ ok: false, error: "Internal error" });
+      }
+    },
+  );
 
   /* READ */
   socket.on("message:read", async ({ chatId, messageIds }, ack) => {

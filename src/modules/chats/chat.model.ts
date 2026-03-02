@@ -31,7 +31,7 @@ export interface IChat extends Document {
 
   // userId -> last read timestamp
   lastRead: Map<string, Date>;
-  lastSeen?: Map<string, Date>;
+  lastSeen?: Record<string, Date>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -66,11 +66,6 @@ const chatSchema = new Schema<IChat>(
       of: Date,
       default: () => new Map(),
     },
-    lastSeen: {
-      type: Map,
-      of: Date,
-      default: () => new Map(),
-    },
     cover: {
       url: {
         type: String,
@@ -80,6 +75,11 @@ const chatSchema = new Schema<IChat>(
         type: String,
         default: "",
       },
+    },
+    lastSeen: {
+      type: Map,
+      of: Date,
+      default: {},
     },
   },
   { timestamps: true },
