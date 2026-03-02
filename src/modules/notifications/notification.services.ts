@@ -26,7 +26,7 @@ export const notificationService = {
   },
 
   list: async (userId: string) => {
-    return Notification.find({ userId }).sort({ createdAt: -1 }).limit(50);
+    return Notification.find({ userId }).sort({ createdAt: -1 }).limit(50).populate("userId", "name avatar");
   },
 
   markRead: async (userId: string, notificationId: string) => {

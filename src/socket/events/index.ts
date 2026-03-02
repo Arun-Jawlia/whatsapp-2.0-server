@@ -5,28 +5,38 @@ import { registerTypingEvents } from "./typing.events";
 import { registerReactionEvents } from "./reaction.events";
 import { AuthSocket } from "../socket.types";
 import {
-  addUserSocket,
-  removeUserSocket,
-  getOnlineUserIds,
+  markActive,
+  getPresenceSnapshot,
+  addUser,
+  removeUser,
 } from "../presence/presence.manage";
 
 export const registerSocketEvents = (io: Server) => {
   io.on("connection", async (socket: AuthSocket) => {
     const userId = socket.userId;
-    console.log(socket.userId, "socket connect")
     if (!userId) return;
+    console.log(`User connected: ${userId} (socket ID: ${socket.id})`);
 
-    /* -------- PRESENCE -------- */
-    const isFirstConnection = addUserSocket(userId, socket.id);
     socket.join(`user:${userId}`);
 
-    // authoritative snapshot (exclude self)
-    socket.emit("presence:sync", {
-      userIds: getOnlineUserIds().filter((id) => id !== userId),
+    socket.on("presence:active", () => {
+      const cameBack = markActive(userId);
+
+      if (cameBack) {
+        io.emit("presence:online", { userId });
+      }
     });
 
-    // emit online ONLY if user just came online
-    if (isFirstConnection) {
+    const firstConnection = addUser(userId, socket.id);
+
+    // Send snapshot to THIS user
+    socket.emit("presence:sync", {
+      // userIds: getOnlineUsers(),
+      users: getPresenceSnapshot(),
+    });
+
+    // Notify others ONLY if newly online
+    if (firstConnection) {
       socket.broadcast.emit("presence:online", { userId });
     }
 
@@ -38,10 +48,13 @@ export const registerSocketEvents = (io: Server) => {
 
     /* -------- DISCONNECT -------- */
     socket.on("disconnect", () => {
-      const fullyOffline = removeUserSocket(userId, socket.id);
+      const fullyOffline = removeUser(userId, socket.id);
 
       if (fullyOffline) {
-        socket.broadcast.emit("presence:offline", { userId });
+        socket.broadcast.emit("presence:offline", {
+          userId,
+          lastSeen: Date.now(),
+        });
       }
     });
   });

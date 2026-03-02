@@ -2,7 +2,7 @@ import { Server } from "socket.io";
 import { AuthSocket } from "../socket.types";
 import { Chat } from "../../modules/chats/chat.model";
 import { Message } from "../../modules/messages/message.model";
-import { isUserOnline } from "../presence/presence.manage";
+import { Notification } from "../../modules/notifications/notification.model";
 
 export const registerMessageEvents = (io: Server, socket: AuthSocket) => {
   socket.on("message:send", async ({ chatId, text, replyTo }, ack) => {
@@ -65,6 +65,8 @@ export const registerMessageEvents = (io: Server, socket: AuthSocket) => {
         chatId,
         message: populated,
       });
+      const receivers: string[] = [];
+
       for (const member of chat.members) {
         const userId = member.toString();
 
@@ -72,6 +74,29 @@ export const registerMessageEvents = (io: Server, socket: AuthSocket) => {
           chatId,
           lastMessage: populated,
           incrementUnread: userId !== socket.userId,
+        });
+
+        if (userId !== socket.userId) {
+          receivers.push(userId);
+        }
+      }
+
+      if (receivers.length) {
+        const created = await Notification.insertMany(
+          receivers.map((userId) => ({
+            userId,
+            type: "new_message",
+            title: "New Message",
+            body: text.trim(),
+            data: { chatId },
+            isRead: false,
+          })),
+        );
+
+        created.forEach((notif) => {
+          io.to(`user:${notif.userId}`).emit("notification:new", {
+            notification: notif,
+          });
         });
       }
 
