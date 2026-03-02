@@ -37,10 +37,13 @@ export const registerChatEvents = (io: Server, socket: AuthSocket) => {
     ack?.({ ok: true, chatId });
   });
 
-  socket.on("chat:leave", ({ chatId }, ack) => {
+  socket.on("chat:leave", async ({ chatId }, ack) => {
     if (!chatId) return;
 
     socket.leave(`chat:${chatId}`);
+    await Chat.findByIdAndUpdate(chatId, {
+      $addToSet: { lastSeen: { [socket.userId as string]: new Date() } },
+    });
     ack?.({ ok: true });
   });
 };
