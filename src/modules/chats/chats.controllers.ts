@@ -11,7 +11,7 @@ export const chatsController = {
   listChats: asyncHandler(async (req: AuthRequest, res: Response) => {
     await ensureAiChatForUser(req.userId!);
     const chats = await Chat.find({ members: req.userId })
-      .populate("members", "name username email avatar")
+      .populate("members", "name username email avatar publicKey")
       .populate({ path: "lastMessage", select: "type text createdAt senderId" })
       .sort({ updatedAt: -1 });
 
@@ -70,7 +70,7 @@ export const chatsController = {
     const messages = await Message.find(query)
       .sort({ createdAt: -1 })
       .limit(limit)
-      .populate("senderId", "name username email avatar");
+      .populate("senderId", "name username email avatar publicKey");
 
     res.json({
       messages: messages.reverse(), // show oldest -> newest

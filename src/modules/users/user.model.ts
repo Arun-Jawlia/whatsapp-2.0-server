@@ -15,6 +15,7 @@ export interface IUser extends Document {
     type: "Point";
     coordinates: [number, number];
   };
+  publicKey: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -83,6 +84,11 @@ const userSchema = new Schema<IUser>(
         type: [Number],
         default: [0, 0],
       },
+    },
+    publicKey: {
+      type: String,
+      required: true,
+      maxlength: [500, "Public key cannot exceed 500 characters"],
     },
   },
   { timestamps: true },

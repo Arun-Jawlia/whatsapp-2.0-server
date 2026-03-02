@@ -42,7 +42,7 @@ export const registerChatEvents = (io: Server, socket: AuthSocket) => {
 
     socket.leave(`chat:${chatId}`);
     await Chat.findByIdAndUpdate(chatId, {
-      $addToSet: { lastSeen: { [socket.userId as string]: new Date() } },
+      $set: { [`lastSeen.${socket.userId}`]: new Date() },
     });
     ack?.({ ok: true });
   });
