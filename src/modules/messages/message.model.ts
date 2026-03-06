@@ -47,8 +47,8 @@ export interface IMessage extends Document {
   deletedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
-  iv: string;
-  ciphertext: string;
+  iv?: string;
+  ciphertext?: string;
 }
 
 const messageSchema = new Schema<IMessage>(
@@ -98,15 +98,9 @@ const messageSchema = new Schema<IMessage>(
     },
     iv: {
       type: String,
-      required: function () {
-        return this?.type === "text";
-      },
     },
     ciphertext: {
       type: String,
-      required: function () {
-        return this?.type === "text";
-      },
     },
   },
   { timestamps: true },
