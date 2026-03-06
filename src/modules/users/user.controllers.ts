@@ -68,4 +68,49 @@ export const usersController = {
 
     res.json({ users });
   }),
+  saveEncryptedKey: asyncHandler(async (req: AuthRequest, res: Response) => {
+    const userId = req.userId; // assuming auth middleware
+    const { encryptedPrivateKey, iv, salt } = req.body;
+
+    if (!encryptedPrivateKey || !iv || !salt) {
+      return res.status(400).json({ message: "Missing backup data" });
+    }
+
+    await User.findByIdAndUpdate(userId, {
+      $set: {
+        backupKey: {
+          encryptedPrivateKey,
+          iv,
+          salt,
+        },
+      },
+    });
+
+    res.json({ success: true });
+  }),
+  getEncryptedKey: asyncHandler(async (req: AuthRequest, res: Response) => {
+    const userId = req.userId;
+
+    const user = await User.findById(userId).select("backupKey");
+
+    if (!user || !user.backupKey) {
+      return res.status(404).json({ message: "No backup found" });
+    }
+
+    res.json(user.backupKey);
+  }),
+  updatePublickey: asyncHandler(async (req: AuthRequest, res: Response) => {
+    const userId = req.userId;
+
+    const user = await User.findById(userId).select("publicKey");
+
+    if (!user) {
+      return res.status(404).json({ message: "No User found" });
+    }
+
+    user.publicKey = req.body.publicKey;
+    await user.save();
+
+    res.json(user.publicKey);
+  }),
 };

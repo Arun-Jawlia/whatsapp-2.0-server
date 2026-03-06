@@ -18,6 +18,11 @@ export interface IUser extends Document {
   publicKey: string;
   createdAt: Date;
   updatedAt: Date;
+  backupKey?: {
+    encryptedPrivateKey?: string;
+    iv?: string;
+    salt?: string;
+  };
 }
 
 const userSchema = new Schema<IUser>(
@@ -89,6 +94,11 @@ const userSchema = new Schema<IUser>(
       type: String,
       required: true,
       maxlength: [500, "Public key cannot exceed 500 characters"],
+    },
+    backupKey: {
+      encryptedPrivateKey: { type: String },
+      iv: { type: String },
+      salt: { type: String },
     },
   },
   { timestamps: true },

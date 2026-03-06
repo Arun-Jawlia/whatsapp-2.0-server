@@ -70,7 +70,8 @@ export const chatsController = {
     const messages = await Message.find(query)
       .sort({ createdAt: -1 })
       .limit(limit)
-      .populate("senderId", "name username email avatar publicKey");
+      .populate("senderId", "name username email avatar publicKey")
+      .populate('replyTo', "senderId type ciphertext iv createdAt")
 
     res.json({
       messages: messages.reverse(), // show oldest -> newest

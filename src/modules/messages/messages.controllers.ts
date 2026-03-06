@@ -69,7 +69,6 @@ export const messagesController = {
     );
 
     if (allDeleted) {
-      // 🔥 DELETE MEDIA FROM STORAGE (if exists)
       if (updatedMsg.mediaMeta?.id) {
         try {
           await deleteFromCloudinary(
@@ -81,7 +80,6 @@ export const messagesController = {
         }
       }
 
-      // 🔥 Mark as globally deleted (optional but recommended)
       updatedMsg.isDeletedForEveryone = true;
       updatedMsg.text = "This message was deleted";
       updatedMsg.mediaUrl = undefined;
@@ -90,11 +88,14 @@ export const messagesController = {
 
       await updatedMsg.save();
     }
-    const io = getIO();
-    io.to(`chat:${updatedMsg.chatId}`).emit("message:deleted", {
-      chatId: updatedMsg.chatId,
-      messageId: updatedMsg._id,
-    });
+    if (allDeleted) {
+      const io = getIO();
+
+      io.to(`chat:${updatedMsg.chatId}`).emit("message:deleted", {
+        chatId: updatedMsg.chatId,
+        messageId: updatedMsg._id,
+      });
+    }
 
     res.json({ ok: true });
   }),

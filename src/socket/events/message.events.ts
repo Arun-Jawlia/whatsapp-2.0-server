@@ -28,6 +28,7 @@ export const registerMessageEvents = (io: Server, socket: AuthSocket) => {
             _id: replyTo,
             chatId,
             isDeletedForEveryone: false,
+            deletedFor: { $ne: socket.userId },
           }).select("_id");
         }
 
@@ -62,9 +63,10 @@ export const registerMessageEvents = (io: Server, socket: AuthSocket) => {
           },
         );
 
-        const populated = await Message.findById(msg._id)
-          .populate("senderId", "name username avatar")
-          .populate("replyTo", "text senderId createdAt");
+        await msg.populate([
+          { path: "senderId", select: "name username avatar" },
+          { path: "replyTo", select: "senderId type ciphertext iv createdAt" },
+        ]);
 
         io.to(`chat:${chatId}`).emit("message:new", {
           chatId,
@@ -133,32 +135,64 @@ export const registerMessageEvents = (io: Server, socket: AuthSocket) => {
     ack?.({ ok: true });
   });
 
-  /* EDIT */
-  socket.on("message:edit", async ({ messageId, text }, ack) => {
-    if (!text?.trim()) return;
+  // /* EDIT */
+  // socket.on("message:edit", async ({ messageId, text }, ack) => {
+  //   if (!text?.trim()) return;
 
-    const msg = await Message.findOneAndUpdate(
-      { _id: messageId, senderId: socket.userId },
-      {
-        $set: {
-          text: text.trim(),
-          isEdited: true,
-          editedAt: new Date(),
+  //   const msg = await Message.findOneAndUpdate(
+  //     { _id: messageId, senderId: socket.userId },
+  //     {
+  //       $set: {
+  //         text: text.trim(),
+  //         isEdited: true,
+  //         editedAt: new Date(),
+  //       },
+  //     },
+  //     { returnDocument: "after" },
+  //   );
+
+  //   if (!msg) return ack?.({ ok: false });
+
+  //   io.to(`chat:${msg.chatId}`).emit("message:edited", {
+  //     messageId,
+  //     text: msg.text,
+  //     editedAt: msg.editedAt,
+  //   });
+
+  //   ack?.({ ok: true });
+  // });
+
+  /* EDIT (ENCRYPTED) */
+  socket.on(
+    "message:edit",
+    async ({ messageId, chatId, iv, ciphertext }, ack) => {
+      if (!ciphertext || !iv) return ack?.({ ok: false });
+
+      const msg = await Message.findOneAndUpdate(
+        { _id: messageId, senderId: socket.userId },
+        {
+          $set: {
+            ciphertext,
+            iv,
+            isEdited: true,
+            editedAt: new Date(),
+          },
         },
-      },
-      { returnDocument: "after" },
-    );
+        { returnDocument: "after" },
+      );
 
-    if (!msg) return ack?.({ ok: false });
+      if (!msg) return ack?.({ ok: false });
 
-    io.to(`chat:${msg.chatId}`).emit("message:edited", {
-      messageId,
-      text: msg.text,
-      editedAt: msg.editedAt,
-    });
+      io.to(`chat:${chatId}`).emit("message:edited", {
+        messageId,
+        iv: msg.iv,
+        ciphertext: msg.ciphertext,
+        editedAt: msg.editedAt,
+      });
 
-    ack?.({ ok: true });
-  });
+      ack?.({ ok: true });
+    },
+  );
 
   /* DELETE */
   socket.on("message:delete", async ({ messageId }, ack) => {
