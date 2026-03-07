@@ -7,7 +7,7 @@ import { Notification } from "../../modules/notifications/notification.model";
 export const registerMessageEvents = (io: Server, socket: AuthSocket) => {
   socket.on(
     "message:send",
-    async ({ chatId, replyTo, iv, ciphertext , text}, ack) => {
+    async ({ chatId, replyTo, iv, ciphertext, text }, ack) => {
       try {
         if (!ciphertext) {
           return ack?.({ ok: false, error: "Empty message" });
@@ -63,7 +63,7 @@ export const registerMessageEvents = (io: Server, socket: AuthSocket) => {
           },
         );
 
-        await msg.populate([
+        const populated = await Message.findById(msg._id).populate([
           { path: "senderId", select: "name username avatar" },
           { path: "replyTo", select: "senderId type ciphertext iv createdAt" },
         ]);
@@ -134,34 +134,6 @@ export const registerMessageEvents = (io: Server, socket: AuthSocket) => {
 
     ack?.({ ok: true });
   });
-
-  // /* EDIT */
-  // socket.on("message:edit", async ({ messageId, text }, ack) => {
-  //   if (!text?.trim()) return;
-
-  //   const msg = await Message.findOneAndUpdate(
-  //     { _id: messageId, senderId: socket.userId },
-  //     {
-  //       $set: {
-  //         text: text.trim(),
-  //         isEdited: true,
-  //         editedAt: new Date(),
-  //       },
-  //     },
-  //     { returnDocument: "after" },
-  //   );
-
-  //   if (!msg) return ack?.({ ok: false });
-
-  //   io.to(`chat:${msg.chatId}`).emit("message:edited", {
-  //     messageId,
-  //     text: msg.text,
-  //     editedAt: msg.editedAt,
-  //   });
-
-  //   ack?.({ ok: true });
-  // });
-
   /* EDIT (ENCRYPTED) */
   socket.on(
     "message:edit",
