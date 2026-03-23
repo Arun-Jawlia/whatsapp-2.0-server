@@ -10,8 +10,7 @@ import aiRoutes from "./modules/ai/ai.routes";
 import notificationRoutes from "./modules/notifications/notification.routes";
 import messagesRoutes from "./modules/messages/messages.routes";
 import uploadRoutes from "./modules/uploads/upload.routes";
-
-export const app = express();
+const app = express();
 
 app.use(
   cors({
@@ -37,3 +36,5 @@ app.use("/api/v1/messages", messagesRoutes);
 app.use("/api/v1/uploads", uploadRoutes);
 
 app.use(errorMiddleware);
+
+export default app
