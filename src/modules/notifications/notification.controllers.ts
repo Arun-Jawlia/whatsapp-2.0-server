@@ -10,7 +10,7 @@ export const notificationController = {
   }),
 
   markRead: asyncHandler(async (req: AuthRequest, res: Response) => {
-    await notificationService.markRead(req.userId!, req.params.id);
+    await notificationService.markRead(req.userId!, String(req.params.id));
     res.json({ message: "Marked read" });
   }),
 

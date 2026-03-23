@@ -4,7 +4,7 @@ import { app } from "./app";
 import { connectToDB } from "./config/db";
 import { env } from "./config/env";
 import http from "http";
-import { initSocket } from "./socket";
+import { initSocket } from "./socket/index";
 
 const start = async () => {
   await connectToDB();

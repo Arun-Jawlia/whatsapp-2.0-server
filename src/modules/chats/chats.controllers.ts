@@ -6,6 +6,7 @@ import { AuthRequest } from "../../middlewares/auth.middleware";
 import { Chat } from "./chat.model";
 import { Message } from "../messages/message.model";
 import { ensureAiChatForUser } from "../ai/ai.chat";
+import { Types } from "mongoose";
 
 export const chatsController = {
   listChats: asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -14,7 +15,6 @@ export const chatsController = {
       .populate("members", "name username email avatar publicKey")
       .populate({ path: "lastMessage", select: "type text createdAt senderId" })
       .sort({ updatedAt: -1 });
-
 
     const chatsWithUnread = [];
 
@@ -71,7 +71,7 @@ export const chatsController = {
       .sort({ createdAt: -1 })
       .limit(limit)
       .populate("senderId", "name username email avatar publicKey")
-      .populate('replyTo', "senderId type ciphertext iv createdAt")
+      .populate("replyTo", "senderId type ciphertext iv createdAt");
 
     res.json({
       messages: messages.reverse(), // show oldest -> newest
@@ -82,6 +82,7 @@ export const chatsController = {
   sendMessage: asyncHandler(async (req: AuthRequest, res: Response) => {
     const chatId = req.params.chatId;
     const { text } = req.body;
+    if (!req.userId) throw new ApiError(400, "Unauthorized");
 
     if (!text || typeof text !== "string" || !text.trim()) {
       throw new ApiError(400, "Message text required");
@@ -93,19 +94,19 @@ export const chatsController = {
     const isMember = chat.members.some((m) => m.toString() === req.userId);
     if (!isMember) throw new ApiError(403, "Not allowed");
 
-    const msg = await Message.create({
+    const msg = (await Message.create({
       chatId,
       senderId: req.userId,
       type: "text",
       text: text.trim(),
       readBy: [req.userId],
       deletedFor: [],
-    });
+    })) as any;
 
-    chat.lastMessage = msg._id as any;
+    chat.lastMessage = msg?._id as any;
     await chat.save();
 
-    const populated = await Message.findById(msg._id).populate(
+    const populated = await Message.findById(msg?._id).populate(
       "senderId",
       "name username email avatar",
     );

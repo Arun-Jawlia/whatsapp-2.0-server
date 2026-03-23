@@ -12,6 +12,10 @@ export const aiController = {
     const text = req.body?.text;
     const io = getIO();
 
+    if (!req.userId) {
+      throw new ApiError(400, "Unauthorized");
+    }
+
     if (!text || typeof text !== "string" || !text.trim()) {
       throw new ApiError(400, "Text required");
     }
@@ -33,7 +37,6 @@ export const aiController = {
       chatId: chat._id,
       message: userMsg,
     });
-
 
     chat.lastMessage = userMsg._id as any;
     await chat.save();
