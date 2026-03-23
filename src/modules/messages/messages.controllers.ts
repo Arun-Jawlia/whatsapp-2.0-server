@@ -6,6 +6,7 @@ import { Message } from "./message.model";
 import { Chat } from "../chats/chat.model";
 import { getIO } from "../../socket/io";
 import { deleteFromCloudinary } from "../uploads/upload.services";
+import { Types } from "mongoose";
 
 export const messagesController = {
   edit: asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -160,21 +161,21 @@ export const messagesController = {
 
     if (!isMemberFrom || !isMemberTo) throw new ApiError(403, "Not allowed");
 
-    const newMsg = await Message.create({
+    const newMsg = (await Message.create({
       chatId: toChatId,
       senderId: req.userId,
       type: msg.type,
       text: msg.text,
       mediaUrl: msg.mediaUrl,
       mediaMeta: msg.mediaMeta,
-      replyTo: null,
+      replyTo: undefined,
       forwardedFrom: msg._id,
       deliveredTo: [],
-      readBy: [req.userId],
+      readBy: [new Types.ObjectId(req.userId)],
       deletedFor: [],
       isEdited: false,
       isDeletedForEveryone: false,
-    });
+    })) as any;
 
     toChat.lastMessage = newMsg._id as any;
     await toChat.save();

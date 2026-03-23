@@ -149,6 +149,10 @@ export const authController = {
     res.json({ message: "Token refreshed" });
   }),
   uploadAvatar: asyncHandler(async (req: Request, res: Response) => {
+    if (!req.userId) {
+      throw new ApiError(400, "Unauthorized");
+    }
+
     const userId = req.userId!;
     if (!req.file) throw new ApiError(400, "file required");
     const mime = req.file.mimetype;

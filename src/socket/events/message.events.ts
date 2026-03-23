@@ -3,6 +3,7 @@ import { AuthSocket } from "../socket.types";
 import { Chat } from "../../modules/chats/chat.model";
 import { Message } from "../../modules/messages/message.model";
 import { Notification } from "../../modules/notifications/notification.model";
+import { Types } from "mongoose";
 
 export const registerMessageEvents = (io: Server, socket: AuthSocket) => {
   socket.on(
@@ -46,12 +47,12 @@ export const registerMessageEvents = (io: Server, socket: AuthSocket) => {
           chatId,
           senderId: socket.userId,
           type: "text",
-          replyTo: replyMsg?._id || null,
-          readBy: [socket.userId],
+          replyTo: replyMsg?._id || undefined,
+          readBy: [new Types.ObjectId(socket.userId)],
           deliveredTo: Array.from(deliveredTo),
           ciphertext,
           iv,
-        });
+        }) as any;
 
         await Chat.updateOne(
           { _id: chatId },
@@ -107,7 +108,7 @@ export const registerMessageEvents = (io: Server, socket: AuthSocket) => {
           });
         }
 
-        ack?.({ ok: true, messageId: msg._id });
+        ack?.({ ok: true, messageId: msg?._id });
       } catch (err) {
         ack?.({ ok: false, error: "Internal error" });
       }
@@ -177,7 +178,7 @@ export const registerMessageEvents = (io: Server, socket: AuthSocket) => {
         },
       },
       { returnDocument: "after" },
-    );
+    ) as any;
 
     if (!msg) return ack?.({ ok: false });
 

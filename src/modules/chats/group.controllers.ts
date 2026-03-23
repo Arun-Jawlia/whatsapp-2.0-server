@@ -52,7 +52,7 @@ export const groupController = {
   }),
 
   leaveGroup: asyncHandler(async (req: AuthRequest, res: Response) => {
-    const chatId = req.params.chatId;
+    const chatId = String(req.params.chatId);
 
     const chat = await groupService.leaveGroup({
       userId: req.userId!,
