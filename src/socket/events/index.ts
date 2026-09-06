@@ -14,6 +14,7 @@ import {
 export const registerSocketEvents = (io: Server) => {
   io.on("connection", async (socket: AuthSocket) => {
     const userId = socket.userId;
+    console.log(userId)
     if (!userId) return;
 
     socket.join(`user:${userId}`);

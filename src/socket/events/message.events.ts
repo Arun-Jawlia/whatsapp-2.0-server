@@ -10,7 +10,8 @@ export const registerMessageEvents = (io: Server, socket: AuthSocket) => {
     "message:send",
     async ({ chatId, replyTo, iv, ciphertext, text }, ack) => {
       try {
-        if (!ciphertext) {
+        const msgText = (text || ciphertext || "").trim();
+        if (!msgText && !ciphertext) {
           return ack?.({ ok: false, error: "Empty message" });
         }
 
@@ -47,11 +48,12 @@ export const registerMessageEvents = (io: Server, socket: AuthSocket) => {
           chatId,
           senderId: socket.userId,
           type: "text",
+          text: msgText,
           replyTo: replyMsg?._id || undefined,
           readBy: [new Types.ObjectId(socket.userId)],
           deliveredTo: Array.from(deliveredTo),
-          ciphertext,
-          iv,
+          ciphertext: ciphertext || msgText,
+          iv: iv || undefined,
         }) as any;
 
         await Chat.updateOne(
@@ -95,7 +97,7 @@ export const registerMessageEvents = (io: Server, socket: AuthSocket) => {
               userId,
               type: "new_message",
               title: "New Message",
-              body: text.trim(),
+              body: msgText,
               data: { chatId },
               isRead: false,
             })),

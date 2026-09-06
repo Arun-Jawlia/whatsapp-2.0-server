@@ -7,6 +7,7 @@ import { Chat } from "./chat.model";
 import { Message } from "../messages/message.model";
 import { ensureAiChatForUser } from "../ai/ai.chat";
 import { Types } from "mongoose";
+import { getIO } from "../../socket/io";
 
 export const chatsController = {
   listChats: asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -81,10 +82,11 @@ export const chatsController = {
 
   sendMessage: asyncHandler(async (req: AuthRequest, res: Response) => {
     const chatId = req.params.chatId;
-    const { text } = req.body;
+    const { text, ciphertext, iv, replyTo } = req.body;
     if (!req.userId) throw new ApiError(400, "Unauthorized");
 
-    if (!text || typeof text !== "string" || !text.trim()) {
+    const msgText = (text || ciphertext || "").trim();
+    if (!msgText && !ciphertext) {
       throw new ApiError(400, "Message text required");
     }
 
@@ -94,22 +96,51 @@ export const chatsController = {
     const isMember = chat.members.some((m) => m.toString() === req.userId);
     if (!isMember) throw new ApiError(403, "Not allowed");
 
+    let replyMsg = null;
+    if (replyTo) {
+      replyMsg = await Message.findOne({
+        _id: replyTo,
+        chatId,
+        isDeletedForEveryone: false,
+        deletedFor: { $ne: req.userId },
+      }).select("_id");
+    }
+
     const msg = (await Message.create({
       chatId,
       senderId: req.userId,
       type: "text",
-      text: text.trim(),
+      text: msgText,
+      replyTo: replyMsg?._id || undefined,
       readBy: [req.userId],
       deletedFor: [],
+      ciphertext: ciphertext || msgText,
+      iv: iv || undefined,
     })) as any;
 
     chat.lastMessage = msg?._id as any;
+    chat.updatedAt = new Date();
     await chat.save();
 
-    const populated = await Message.findById(msg?._id).populate(
-      "senderId",
-      "name username email avatar",
-    );
+    const populated = await Message.findById(msg?._id)
+      .populate("senderId", "name username email avatar publicKey")
+      .populate("replyTo", "senderId type ciphertext iv createdAt");
+
+    try {
+      const io = getIO();
+      io.to(`chat:${chatId}`).emit("message:new", { chatId, message: populated });
+
+      for (const member of chat.members) {
+        const memberId = member.toString();
+        io.to(`user:${memberId}`).emit("chat:update", {
+          chatId,
+          lastMessage: populated,
+          incrementUnread: memberId !== req.userId,
+        });
+      }
+    } catch (e) {
+      // Socket emission fallback if socket io not yet attached
+    }
 
     res.status(201).json({ message: populated });
   }),

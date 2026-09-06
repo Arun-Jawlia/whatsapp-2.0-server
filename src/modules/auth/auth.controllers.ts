@@ -23,10 +23,12 @@ import {
 } from "../uploads/upload.services";
 import { userServices } from "../users/user.service";
 
+const isProd = process.env.NODE_ENV === "production";
+
 const cookieOptions = {
   httpOnly: true,
-  secure: env.NODE_ENV,
-  sameSite: "lax" as const,
+  secure: isProd,
+  sameSite: (isProd ? "none" : "lax") as "none" | "lax",
 };
 
 const accessCookieOptions = {
@@ -73,8 +75,8 @@ export const authController = {
       parsed.data,
     );
 
-    res.cookie("accessToken", accessToken, cookieOptions);
-    res.cookie("refreshToken", refreshToken, cookieOptions);
+    res.cookie("accessToken", accessToken, accessCookieOptions);
+    res.cookie("refreshToken", refreshToken, refreshCookieOptions);
 
     res.json({
       message: "Logged in successfully",
